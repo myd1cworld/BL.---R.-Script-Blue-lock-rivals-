@@ -1,41 +1,443 @@
-# Compiled Lua sources
-luac.out
+local UIS = game:GetService("UserInputService")
+local StarterGui = game:GetService("StarterGui")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
 
-# luarocks build files
-*.src.rock
-*.zip
-*.tar.gz
+local plr = Players.LocalPlayer
+local Character = plr.Character or plr.CharacterAdded:Wait()
+local Screen = Instance.new("ScreenGui", game.CoreGui)
+Screen.Name = "AmassaMenu"
+Screen.ScreenInsets = Enum.ScreenInsets.None
+Screen.ClipToDeviceSafeArea = false
 
-# Object files
-*.o
-*.os
-*.ko
-*.obj
-*.elf
+local itemsToDestroy = {"Barriers", "Colliders", "SmallSquare"}
+local goals = workspace:FindFirstChild("Goals")
+local goalNames = {"Away", "Home"}
+local Active = false
+local Keybinds = {Teleport = Enum.KeyCode.F}
 
-# Precompiled Headers
-*.gch
-*.pch
+local function CreateUIStroke(Settings)
+	local UIStroke = Instance.new("UIStroke")
+	UIStroke.Parent = Settings.Parent or Screen
+	UIStroke.Color = Settings.Color or Color3.new(0, 0, 0)
+	UIStroke.Thickness = Settings.Thickness or 1
+	UIStroke.Transparency = Settings.Transparency or 0
+	UIStroke.ApplyStrokeMode = Settings.ApplyStrokeMode or Enum.ApplyStrokeMode.Border
+	UIStroke.Name = Settings.Name or "UIStroke"
 
-# Libraries
-*.lib
-*.a
-*.la
-*.lo
-*.def
-*.exp
+	return UIStroke
+end
 
-# Shared objects (inc. Windows DLLs)
-*.dll
-*.so
-*.so.*
-*.dylib
+local function CreateUICorner(Settings)
+	local UICorner = Instance.new("UICorner")
+	UICorner.Parent = Settings.Parent or Screen
+	UICorner.CornerRadius = Settings.CornerRadius or UDim.new(0, 16)
+	return UICorner
+end
 
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
+local function CreateUIARC(Settings)
+	local UIAspectRatioConstraint = Instance.new("UIAspectRatioConstraint")
+	UIAspectRatioConstraint.Parent = Settings.Parent or Screen
+	UIAspectRatioConstraint.AspectRatio = Settings.AspectRatio or 1
+	UIAspectRatioConstraint.AspectType = Settings.AspectType or Enum.AspectType.FitWithinMaxSize
+	return UIAspectRatioConstraint
+end
 
+local function CreateButton(Settings)
+	local Button = Instance.new("TextButton")
+	Button.Parent = Settings.Parent or Screen
+	Button.Name = Settings.Name or "Button"
+	Button.Position = Settings.Position or UDim2.new(0.5, 0, 0.5, 0)
+	Button.Size = Settings.Size or UDim2.new(0.1, 0, 0.1, 0)
+	Button.BackgroundColor3 = Settings.BackgroundColor3 or Color3.new(0, 0, 0)
+	Button.Text = Settings.Text or "Button"
+	Button.TextColor3 = Settings.TextColor3 or Color3.new(1, 1, 1)
+	Button.Font = Settings.Font or Enum.Font.Highway
+	Button.Transparency = Settings.Transparency or 0
+	Button.TextScaled = true
+	Button.TextWrapped = true
+	Button.AutoButtonColor = true
+	Button.Visible = Settings.Visible ~= false
+
+	return Button
+end
+
+local function CreateTextLabel(Settings)
+	local TextLabel = Instance.new("TextLabel")
+	TextLabel.Interactable = false
+	TextLabel.Parent = Settings.Parent or Screen
+	TextLabel.Name = Settings.Name or "TextLabel"
+	TextLabel.Position = Settings.Position or UDim2.new(0.5, 0, 0.5, 0)
+	TextLabel.Size = Settings.Size or UDim2.new(0.1, 0, 0.1, 0)
+	TextLabel.BackgroundTransparency = Settings.BackgroundTransparency or 1
+	TextLabel.BackgroundColor3 = Settings.BackgroundColor3 or Color3.new(0, 0, 0)
+	TextLabel.Text = Settings.Text or "TextLabel"
+	TextLabel.TextColor3 = Settings.TextColor3 or Color3.new(1, 1, 1)
+	TextLabel.Font = Settings.Font or Enum.Font.Highway
+	TextLabel.TextScaled = Settings.TextScaled or true
+	TextLabel.TextWrapped = Settings.TextWrapped or true
+	return TextLabel
+end
+
+local DragLimitFrame = Instance.new("Frame", Screen)
+DragLimitFrame.Transparency = 1
+DragLimitFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+DragLimitFrame.Size = UDim2.new(1, 0, 1, 0)
+DragLimitFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+
+local DragDetector = Instance.new("Frame", Screen)
+DragDetector.Name = "DragDetector"
+DragDetector.Size = UDim2.new(0.5, 0, 0.06, 0)
+DragDetector.Position = UDim2.new(0.35, 0, 0.1, 0)
+DragDetector.BackgroundColor3 = Color3.new(0, 0, 0)
+DragDetector.Transparency = 1
+DragDetector.Visible = true
+
+local MainBackground = Instance.new("Frame", DragDetector)
+MainBackground.Name = "MainBackground"
+MainBackground.Size = UDim2.new(1, 0, 8, 0)
+MainBackground.Position = UDim2.new(0, 0, 0, 0)
+MainBackground.BackgroundColor3 = Color3.new(0, 0, 0)
+MainBackground.Transparency = 0.5
+
+local DivisionLine = Instance.new("Frame", MainBackground)
+DivisionLine.Name = "DivisionLine"
+DivisionLine.Size = UDim2.new(0.005, 0, 1, 0)
+DivisionLine.Position = UDim2.new(0.15, 0, 0.5, 0)
+DivisionLine.AnchorPoint = Vector2.new(0.5, 0.5)
+DivisionLine.BackgroundColor3 = Color3.new(0, 0, 0)
+
+local DivisionLine = Instance.new("Frame", MainBackground)
+DivisionLine.Name = "DivisionLine"
+DivisionLine.Size = UDim2.new(1, 0, 0.005, 0)
+DivisionLine.Position = UDim2.new(0.5, 0, 0.115, 0)
+DivisionLine.AnchorPoint = Vector2.new(0.5, 0.5)
+DivisionLine.BackgroundColor3 = Color3.new(0, 0, 0)
+
+local GameOptions = Instance.new("ScrollingFrame", MainBackground)
+GameOptions.Name = "GameOptions"
+GameOptions.Position = UDim2.new(0.575, 0,0.56, 0)
+GameOptions.Size = UDim2.new(0.85, 0,0.885, 0)
+GameOptions.AnchorPoint = Vector2.new(0.5, 0.5)
+GameOptions.BackgroundColor3 = Color3.new(0, 0, 0)
+GameOptions.Transparency = 1
+GameOptions.Visible = true
+
+local UIPadding = Instance.new("UIPadding", GameOptions)
+UIPadding.PaddingTop = UDim.new(0, 5)
+
+local UIGridLayout = Instance.new("UIGridLayout", GameOptions)
+UIGridLayout.CellPadding = UDim2.new(0, 5, 0, 5)
+UIGridLayout.CellSize = UDim2.new(0.85, 0, 0.05, 0)
+UIGridLayout.FillDirection = Enum.FillDirection.Horizontal
+UIGridLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+CreateUIStroke({Color = Color3.new(0, 0, 0), Parent = MainBackground})
+CreateUICorner({CornerRadius = UDim.new(0, 8), Parent = MainBackground})
+CreateUIARC({Parent = DragDetector, AspectRatio = 8})
+
+local DragIcon = Instance.new("ImageLabel", DragDetector)
+DragIcon.Name = "DragIcon"
+DragIcon.Size = UDim2.new(0.085, 0, 0.6, 0)
+DragIcon.BackgroundTransparency = 1
+DragIcon.Image = "rbxassetid://5172066892"
+DragIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+DragIcon.Interactable = false
+DragIcon.Position = UDim2.new(0.065, 0,0.4, 0)
+
+local UIDragDetector = Instance.new("UIDragDetector", DragDetector)
+UIDragDetector.BoundingUI = DragLimitFrame
+
+local ShowButton = CreateButton({
+	Parent = Screen,
+	Name = "MenuOpen",
+	Position = UDim2.new(0.05, 0, 0.2, 0),
+	Size = UDim2.new(0.1, 0, 0.1, 0),
+	Text = "",
+	BackgroundColor3 = Color3.new(0, 0, 0),
+	Transparency = 0.5,
+})
+
+local ShowButtonTextLabel = CreateTextLabel({
+	Parent = ShowButton,
+	Name = "ShowButtonText",
+	Position = UDim2.new(0.5, 0, 0.5, 0),
+	Size = UDim2.new(1, 0, 1, 0),
+	Text = "Amassa Menu",
+	TextColor3 = Color3.new(1, 1, 1),
+}) ShowButtonTextLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+
+CreateUIStroke({Color = Color3.new(0, 0, 0), Parent = ShowButtonTextLabel, ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual})
+CreateUIStroke({Color = Color3.new(0, 0, 0), Parent = ShowButton, ApplyStrokeMode = Enum.ApplyStrokeMode.Border})
+CreateUICorner({Parent = ShowButton, CornerRadius = UDim.new(1,0)})
+CreateUIARC({Parent = ShowButton})
+
+ShowButton.MouseButton1Click:Connect(function()
+	DragDetector.Visible = not DragDetector.Visible
+end)
+
+local MinimizeButton = CreateButton({
+	Parent = MainBackground,
+	Position = UDim2.new(0.9, 0, 0.02, 0),
+	Size = UDim2.new(0.08, 0, 0.08, 0),
+	Transparency = 0.5,
+	BackgroundColor3 = Color3.new(0, 0, 0),
+	Text = ""
+})
+
+local TeleportText = CreateTextLabel({
+	Parent = MinimizeButton,
+	Name = "MinimizeTextLabel",
+	Position = UDim2.new(0.5, 0, 0.5, 0),
+	Size = UDim2.new(1.4, 0, 1.4, 0),
+	Text = "-",
+	TextColor3 = Color3.new(1, 1, 1),
+}) TeleportText.AnchorPoint = Vector2.new(0.5, 0.5)
+
+CreateUIStroke({Color = Color3.new(0, 0, 0), Parent = TeleportText, ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual})
+CreateUIStroke({Color = Color3.new(0, 0, 0), Parent = MinimizeButton, ApplyStrokeMode = Enum.ApplyStrokeMode.Border})
+CreateUICorner({Parent = MinimizeButton, CornerRadius = UDim.new(0, 8)})
+
+MinimizeButton.MouseButton1Click:Connect(function()
+	DragDetector.Visible = not DragDetector.Visible
+end)
+
+local TeleportButton = CreateButton({
+	Parent = GameOptions,
+	Position = UDim2.new(0.05, 0, 0.25, 0),
+	Size = UDim2.new(1, 0, 1, 0),
+	Text = "",
+	Transparency = 0.5,
+	BackgroundColor3 = Color3.new(0, 0, 0)
+})
+
+CreateUIStroke({Color = Color3.new(0, 0, 0), Parent = TeleportButton, ApplyStrokeMode = Enum.ApplyStrokeMode.Border})
+CreateUICorner({Parent = TeleportButton, CornerRadius = UDim.new(0, 12)})
+
+local TeleportText = CreateTextLabel({
+	Parent = TeleportButton,
+	Name = "TeleportText",
+	Position = UDim2.new(0.375, 0,0.5, 0),
+	Size = UDim2.new(0.7, 0,1, 0),
+	Text = "Teleport To Ball",
+	TextColor3 = Color3.new(1, 1, 1),
+}) TeleportText.AnchorPoint = Vector2.new(0.5, 0.5) TeleportText.TextXAlignment = Enum.TextXAlignment.Left
+
+CreateUIStroke({Color = Color3.new(0, 0, 0), Parent = TeleportText, ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual})
+
+local TeleportButtonEnabledText = CreateTextLabel({
+	Parent = TeleportButton,
+	Name = "TeleportButtonEnabledText",
+	Position = UDim2.new(0.85, 0,0.5, 0),
+	Size = UDim2.new(0.25, 0,1, 0),
+	Text = "Off",
+	TextColor3 = Color3.new(1, 0, 0.0156863),
+}) TeleportButtonEnabledText.AnchorPoint = Vector2.new(0.5, 0.5)
+
+CreateUIStroke({Color = Color3.new(0, 0, 0), Parent = TeleportButtonEnabledText, ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual})
+
+local DivisionLine = Instance.new("Frame", TeleportButton)
+DivisionLine.Size = UDim2.new(0.005, 0, 1, 0)
+DivisionLine.Position = UDim2.new(0.75, 0,0.5, 0)
+DivisionLine.AnchorPoint = Vector2.new(0.5, 0.5)
+DivisionLine.BackgroundColor3 = Color3.new(0, 0, 0)
+
+local function FindFootball()
+	for _, obj in workspace:GetDescendants() do
+		if obj.Name == "Football" then
+			return obj
+		end
+	end
+
+	return nil
+end
+
+local function Teleport()
+	while Active and task.wait(0.05) do
+		local ball = FindFootball()
+		if ball and ball.Parent ~= Character then
+			if ball.Parent == workspace then
+				plr.Character.HumanoidRootPart.CFrame = ball.CFrame
+			else
+				plr.Character.HumanoidRootPart.CFrame = ball.CFrame * CFrame.new(0, math.random(-2,2), math.random(-2,2))
+
+				VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+				task.wait(0.025)
+				VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+			end
+		end
+	end
+end
+
+local function ToggleTeleport()
+	Active = not Active
+	if Active then
+		TeleportButtonEnabledText.Text = "On"
+		TeleportButtonEnabledText.TextColor3 = Color3.new(0.333333, 1, 0.498039)
+		Teleport()
+	else
+		TeleportButtonEnabledText.Text = "Off"
+		TeleportButtonEnabledText.TextColor3 = Color3.new(1, 0.113725, 0.113725)
+	end
+end
+
+TeleportButton.MouseButton1Click:Connect(ToggleTeleport)
+
+UIS.InputBegan:Connect(function(input, gameProcessed)
+	if not gameProcessed and input.KeyCode == Keybinds.Teleport then
+		ToggleTeleport()
+	end
+end)
+
+for _, itemName in ipairs(itemsToDestroy) do
+	local item = workspace:FindFirstChild(itemName)
+	if item then
+		item:Destroy()
+	end
+end
+
+if goals then
+	for _, goalName in ipairs(goalNames) do
+		local goal = goals:FindFirstChild(goalName)
+		if goal then
+			goal.CanCollide = false
+		end
+	end
+end
+
+local function SendNotification(title, text, duration)
+	pcall(function()
+		StarterGui:SetCore("SendNotification", {
+			Title = title;
+			Text = text;
+			Duration = duration or 5;
+		})
+	end)
+end
+
+local AutoGoalActive = false
+local AutoGoalKeybind = Enum.KeyCode.H
+
+local AutoGoalButton = CreateButton({
+	Parent = GameOptions,
+	Position = UDim2.new(0.05, 0, 0.35, 0),
+	Size = UDim2.new(1, 0, 1, 0),
+	Text = "",
+	Transparency = 0.5,
+	BackgroundColor3 = Color3.new(0, 0, 0)
+})
+
+CreateUIStroke({Color = Color3.new(0, 0, 0), Parent = AutoGoalButton, ApplyStrokeMode = Enum.ApplyStrokeMode.Border})
+CreateUICorner({Parent = AutoGoalButton, CornerRadius = UDim.new(0, 12)})
+
+local AutoGoalText = CreateTextLabel({
+	Parent = AutoGoalButton,
+	Name = "AutoGoalText",
+	Position = UDim2.new(0.375, 0, 0.5, 0),
+	Size = UDim2.new(0.7, 0, 1, 0),
+	Text = "Auto Goal",
+	TextColor3 = Color3.new(1, 1, 1),
+}) 
+AutoGoalText.AnchorPoint = Vector2.new(0.5, 0.5)
+AutoGoalText.TextXAlignment = Enum.TextXAlignment.Left
+
+CreateUIStroke({Color = Color3.new(0, 0, 0), Parent = AutoGoalText, ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual})
+
+local AutoGoalButtonEnabledText = CreateTextLabel({
+	Parent = AutoGoalButton,
+	Name = "AutoGoalButtonEnabledText",
+	Position = UDim2.new(0.85, 0, 0.5, 0),
+	Size = UDim2.new(0.25, 0, 1, 0),
+	Text = "Off",
+	TextColor3 = Color3.new(1, 0, 0.0156863),
+}) 
+AutoGoalButtonEnabledText.AnchorPoint = Vector2.new(0.5, 0.5)
+
+CreateUIStroke({Color = Color3.new(0, 0, 0), Parent = AutoGoalButtonEnabledText, ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual})
+
+local function FindGoal()
+	if goals then
+		return goals:FindFirstChild(plr.Team.Name)
+	end
+
+	return nil
+end
+
+local function AutoGoal()
+	while AutoGoalActive and task.wait() do
+		local ball = FindFootball()
+		local goal = FindGoal()
+
+		if ball and goal then
+			if ball.Parent == Character then
+				local TweenSpeedCalculate = (plr.Character.HumanoidRootPart.Position - goal.Position).Magnitude
+				TweenSpeedCalculate = TweenSpeedCalculate / 80
+				
+				plr.Character.HumanoidRootPart.CFrame = plr.Character.HumanoidRootPart.CFrame * CFrame.new(0, -15, 0)
+				local Tween = TweenService:Create(plr.Character.HumanoidRootPart, TweenInfo.new(TweenSpeedCalculate, Enum.EasingStyle.Linear, Enum.EasingDirection.Out), {
+					CFrame = goal.CFrame * CFrame.new(0, -15, 0)
+				})
+
+				Tween:Play()
+				local TweenCompleted = false
+				task.spawn(function()
+					while not TweenCompleted and task.wait(0.1) do
+						VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Q, false, game)
+						task.wait(0.025)
+						VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Q, false, game)
+					end
+				end)
+
+				Tween.Completed:Wait()
+				plr.Character.HumanoidRootPart.CFrame = goal.CFrame
+				TweenCompleted = true
+
+				VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
+				task.wait(0.025)
+				VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
+			elseif ball.Parent ~= Character and ball.Parent ~= workspace then
+				plr.Character.HumanoidRootPart.CFrame = ball.CFrame * CFrame.new(0, math.random(-2,2), math.random(-2,2))
+
+				VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+				task.wait(0.025)
+				VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+
+			elseif ball.Parent == workspace then
+				plr.Character.HumanoidRootPart.CFrame = ball.CFrame
+				task.wait(0.75)
+			end
+		end
+	end
+end
+
+local function ToggleAutoGoal()
+	AutoGoalActive = not AutoGoalActive
+	if AutoGoalActive then
+		AutoGoalButtonEnabledText.Text = "On"
+		AutoGoalButtonEnabledText.TextColor3 = Color3.new(0.333333, 1, 0.498039)
+		AutoGoal()
+	else
+		AutoGoalButtonEnabledText.Text = "Off"
+		AutoGoalButtonEnabledText.TextColor3 = Color3.new(1, 0.113725, 0.113725)
+	end
+end
+
+AutoGoalButton.MouseButton1Click:Connect(ToggleAutoGoal)
+
+UIS.InputBegan:Connect(function(input, gameProcessed)
+	if not gameProcessed and input.KeyCode == AutoGoalKeybind then
+		ToggleAutoGoal()
+	end
+end)
+
+task.spawn(function()
+	SendNotification("Welcome!", "Developed by juauduamassa!", 6)    
+	SendNotification("Script Loading.", "Loading...", 3)
+	task.wait(3)
+	SendNotification("Good Game!", "Loading End.", 3)
+	task.wait(2)
+
+	loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
+	loadstring(game:HttpGet("https://pastefy.app/wa3v2Vgm/raw"))("Spider Script")
+end)
